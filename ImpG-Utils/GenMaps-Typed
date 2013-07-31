@@ -1,0 +1,70 @@
+#!/usr/bin/python
+
+import sys
+import math
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.add_option("-m", "--maps", dest="directory")
+parser.add_option("-s", "--sequence", dest="sequencefile")
+parser.add_option("-y", "--typed", dest="typedfile")
+parser.add_option("-d", "--directory", dest="output")
+parser.add_option("-o", "--order", dest="order")
+parser.add_option("-t", "--threshold", dest="threshold", default=10)
+
+(options, args) = parser.parse_args()
+
+sequencefile_nm = options.sequencefile
+typedfile_nm = options.typedfile
+output = options.output
+directory = options.directory
+order_nm = options.order
+th = int(options.threshold)
+
+if(sequencefile_nm == None or typedfile_nm == None
+    or output == None or directory == None or order_nm == None):
+    sys.stderr.write("Usage:\n")
+    sys.stderr.write("\t-m (required) to specify input map files\n")
+    sys.stderr.write("\t-s (required) to specify input map files sequence\n")
+    sys.stderr.write("\t-y (required) to specify typed SNP file\n")
+    sys.stderr.write("\t-d (required) to specify output directory\n")
+    sys.stderr.write("\t-o (required) to specify map sequence output file\n")
+    sys.stderr.write("\t-t (optional) to specify min number of typed SNPs in window\n")
+    sys.exit()
+
+# read the snps on the array
+typed_snps = dict()
+typedfile = open(typedfile_nm, "r")
+for line in typedfile:
+    line = line[:-1]
+    cols = line.split()
+    snp_id = cols[0]
+    if(snp_id[0:2] == "rs"):
+        typed_snps[snp_id] = (cols[1], cols[2], cols[3], cols[4])
+
+# iterate through all the map files
+first_line = "SNP_id SNP_pos Ref Alt Z-score"
+order = open(order_nm, "w")
+sequencefile = open(sequencefile_nm, "r")
+for mapfile_nm in sequencefile:
+    count = 0
+    mapfile_nm = mapfile_nm[:-1]
+    mapfile_nm = directory+mapfile_nm
+    of = open(output+mapfile_nm.split("/")[-1]+".typed", "w")
+    of.write(first_line+"\n")
+    mapfile = open(mapfile_nm, "r")
+    for line in mapfile:
+        line = line[:-1]
+        cols = line.split()
+        snp_id = cols[0]
+        if(snp_id in typed_snps):
+            snp_info = typed_snps[snp_id]
+            of.write(snp_id+" "+snp_info[0]+" "+snp_info[1]+" "+snp_info[2]+\
+                        " "+snp_info[3]+"\n")
+            count = count + 1
+    mapfile.close()
+    of.close()
+    if(count > th):
+        order.write(mapfile_nm.split("/")[-1]+"\n")
+sequencefile.close()
+order.close()

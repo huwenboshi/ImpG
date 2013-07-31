@@ -1,0 +1,40 @@
+#!/usr/bin/python
+
+import sys
+import math
+from optparse import OptionParser
+import subprocess
+
+
+parser = OptionParser()
+parser.add_option("-b", "--binary", dest="binary")
+parser.add_option("-s", "--sequence", dest="sequencefile")
+parser.add_option("-d", "--directory", dest="directory")
+parser.add_option("-u", "--suffix", dest="suffix", default="")
+
+(options, args) = parser.parse_args()
+
+sequencefile_nm = options.sequencefile
+directory = options.directory
+binary = options.binary
+suffix = options.suffix
+
+if(sequencefile_nm == None or directory == None or binary == None):
+    sys.stderr.write("Usage:\n")
+    sys.stderr.write("\t-b (required) to specify path to ImpG-Summary-GenBeta\n")
+    sys.stderr.write("\t-s (required) to specify map sequence file for the windows\n")
+    sys.stderr.write("\t-d (required) to specify data directory\n")
+    sys.stderr.write("\t-u (required) to specify suffix of data directory\n")
+    sys.exit()
+
+# iterate through all the map files
+sequencefile = open(sequencefile_nm, "r")
+for mapfile_nm in sequencefile:
+    mapfile_nm = mapfile_nm[:-1]
+    cmd_line = binary+" "
+    cmd_line = cmd_line+" -h "+directory+"haps/"+mapfile_nm+".haps"
+    cmd_line = cmd_line+" -t "+directory+"typed"+suffix+"/"+mapfile_nm+".typed"
+    cmd_line = cmd_line+" -m "+directory+"maps/"+mapfile_nm
+    cmd_line = cmd_line+" -p "+directory+"betas"+suffix+"/"+mapfile_nm+".step1"
+    subprocess.call(cmd_line.split())
+sequencefile.close()

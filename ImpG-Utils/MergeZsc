@@ -1,0 +1,73 @@
+#!/usr/bin/python
+
+import sys
+import math
+import bisect
+
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.add_option("-d", "--directory", dest="directory")
+parser.add_option("-o", "--output", dest="output")
+parser.add_option("-w", "--window", dest="window", default=1000000)
+parser.add_option("-b", "--buffer", dest="buffer", default=500000)
+parser.add_option("-s", "--sequence", dest="sequence")
+parser.add_option("-u", "--suffix", dest="suffix", default="")
+
+(options, args) = parser.parse_args()
+
+directory = options.directory
+output = options.output
+window = int(options.window)
+buf = int(options.buffer)/2
+sequence_nm = options.sequence
+suffix = options.suffix
+
+usage = \
+"""Usage:
+    -d (required) specify directory for imputed Z-scores
+    -s (required) specify file name that saves per partition SNP map file names
+    -o (required) specify output file name
+    -w (optional) specify window size (1Mb by default)
+    -b (optional) specify buffer size (0.5 Mb by default)
+    -u (optional) specify suffix of directories (empty string by default)"""
+    
+if(directory == None or output == None or sequence_nm == None):
+    sys.exit(usage)
+
+# adjust start position and end position
+seqfile = open(sequence_nm, "r")
+start_end = list()
+for line in seqfile:
+    line = line[:-1]
+    cols = line.split(".")
+    low_high = cols[1].split("-")
+    low = int(low_high[0])
+    high = int(low_high[1])
+    start_end.append((low+buf+1, high-buf))
+start_end[0] = (1, start_end[0][1])
+nmap = len(start_end)
+start_end[nmap-1] = (start_end[nmap-1][0], start_end[nmap-1][1]+buf)
+seqfile.close()
+
+# iterate through all z-score file
+out = open(output, "w")
+out.write("SNP_id SNP_pos Ref_allele Alt_Allele Z-score Var\n")
+idx = 0
+seqfile = open(sequence_nm, "r")
+for line in seqfile:
+    line = line[:-1]
+    zscfile = open(directory+suffix+"/"+line+".impz", "r")
+    first_line_skipped = False
+    for zline in zscfile:
+        if(first_line_skipped == False):
+            first_line_skipped = True
+            continue
+        zline = zline[:-1]
+        cols = zline.split()
+        pos = int(cols[1])
+        if(pos >= start_end[idx][0] and pos <= start_end[idx][1]):
+            out.write(zline+"\n")
+    idx = idx + 1
+seqfile.close()
+out.close()

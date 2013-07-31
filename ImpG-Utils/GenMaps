@@ -1,0 +1,105 @@
+#!/usr/bin/python
+
+import sys
+import math
+import bisect
+
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.add_option("-m", "--map", dest="filename")
+parser.add_option("-p", "--prefix", dest="out_prefix")
+parser.add_option("-w", "--window", dest="window", default=1000000)
+parser.add_option("-b", "--buffer", dest="buffer", default=500000)
+parser.add_option("-s", "--sequence", dest="sequence")
+
+(options, args) = parser.parse_args()
+
+fname = options.filename
+oprefix = options.out_prefix
+window = int(options.window)
+buf = int(options.buffer)/2
+sequence_nm = options.sequence
+
+usage = \
+"""Usage:
+    -m (required) specify map file for all SNPs
+    -p (required) specify output prefix
+    -w (optional) specify window size
+    -b (optional) specify buffer size
+    -s (required) specify file name to save per partition SNP map file names"""
+
+if(fname == None or oprefix == None or sequence_nm == None):
+    sys.exit(usage)
+
+# load information of all the snps from file
+f = open(fname, 'r')
+all_snps = []
+positions = []
+for line in f:
+    line = line[:-1]
+    cols = line.split()
+    # ignore lines that have more than 4 fields
+    if(len(cols) != 4):
+        continue
+    # parse everything out and check for format
+    snp_id = cols[0]
+    prefix = snp_id[:2] # should be "rs" for snps
+    suffix = snp_id[2:] # should be a number for snps
+    # snp_id should be "rs" followed by a number, otherwise, ignore it
+    if(prefix != "rs" or (not suffix.isdigit())):
+        continue
+    # snp_pos should be a number
+    snp_pos = cols[1]
+    if(not snp_pos.isdigit()):
+        continue
+    # should be A, T, C, G
+    ref = cols[2]
+    if(ref != "A" and ref != "T" and ref != "C" and ref != "G"):
+        continue
+    alt = cols[3]
+    # should be A, T, C, G
+    if(alt != "A" and alt != "T" and alt != "C" and alt != "G"):
+        continue
+    all_snps.append((snp_id, ref+" "+alt))
+    positions.append(int(snp_pos))
+f.close()
+
+min_pos = positions[0]
+max_pos = positions[len(all_snps)-1]
+
+min_win_id = (min_pos-1)/window
+max_win_id = (max_pos-1)/window
+
+# iterate through windows
+total_count = 0
+s = open(sequence_nm, "w")
+for i in range(min_win_id, max_win_id+1):
+    # compute window range
+    low = i*window-buf
+    high = (i+1)*window+buf
+    if(i == 0):
+        low = 1
+    if(i == max_win_id):
+        high = (i+1)*window
+    # index of the snp, with position greater than low
+    low_idx =  bisect.bisect(positions, low)
+    # index of the snp, with position greater than high
+    high_idx = bisect.bisect(positions, high)
+    if(high_idx - low_idx > 0):
+        name = oprefix+"."+str(low)+"-"+str(high)+".map"
+        name_fields = name.split("/")
+        s.write(name_fields[len(name_fields)-1]+"\n")
+        w = open(name, "w")
+        w.write("SNP_ID SNP_Pos Ref_Allele Alt_Allele\n")
+        window_count = 0
+        start_idx = low_idx-1
+        if(start_idx < 0):
+            start_idx = 0
+        for j in range(start_idx, high_idx):
+            line = all_snps[j][0]+" "+str(positions[j])+" "+all_snps[j][1]
+            w.write(line+"\n")
+            window_count = window_count + 1
+        total_count = total_count + window_count
+        w.close()
+s.close()

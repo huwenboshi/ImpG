@@ -1,0 +1,31 @@
+#!/usr/bin/python
+
+import sys
+import math
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.add_option("-f", "--file", dest="file")
+parser.add_option("-c", "--code", dest="code")
+
+(options, args) = parser.parse_args()
+
+file_nm = options.file
+code = options.code
+
+if(file_nm == None or code == None):
+    sys.stderr.write("Usage:\n")
+    sys.stderr.write("\t-f (required) to specify all population file\n")
+    sys.stderr.write("\t-c (required) to specify population code\n")
+    sys.exit()
+
+f = open(file_nm, "r")
+
+for line in f:
+    line = line[:-1]
+    cols = line.split()
+    indv = cols[0]
+    pop = cols[2]
+    if(code == pop):
+        if(indv not in added):
+            print(indv)

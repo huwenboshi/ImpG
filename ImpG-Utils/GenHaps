@@ -1,0 +1,100 @@
+#!/usr/bin/python
+
+import sys
+import math
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.add_option("-d", "--directory", dest="directory")
+parser.add_option("-s", "--sequence", dest="sequencefile")
+parser.add_option("-a", "--allhaps", dest="hapfile")
+parser.add_option("-p", "--population", dest="popfile")
+parser.add_option("-o", "--output", dest="output")
+
+(options, args) = parser.parse_args()
+
+sequencefile_nm = options.sequencefile
+hapfile_nm = options.hapfile
+popfile_nm = options.popfile
+output = options.output
+directory = options.directory
+
+if(sequencefile_nm == None or hapfile_nm == None or
+   popfile_nm == None or output == None or directory == None):
+    sys.stderr.write("Usage:\n")
+    sys.stderr.write("\t-d (required) to specify map file directory\n")
+    sys.stderr.write("\t-s (required) to specify map sequence file\n")
+    sys.stderr.write("\t-a (required) to specify all phased haplotype file\n")
+    sys.stderr.write("\t-p (required) to specify population file\n")
+    sys.stderr.write("\t-o (required) to specify output directory\n")
+    sys.exit()
+
+# load the set of individual sample ids of the population we choose
+indvs = set()
+popfile = open(popfile_nm, "r")
+for line in popfile:
+    line = line[:-1]
+    indvs.add(line)
+popfile.close()
+
+# find the columns corresponding to the individual sample id
+indv_line = "SNP_id "
+indv_idx = list()
+hapfile = open(hapfile_nm, "r")
+line = hapfile.readline()
+line = line[:-1]
+cols = line.split()
+for i in range(2,len(cols)):
+    if(cols[i] in indvs):
+        indv_line = indv_line + cols[i] + " "
+        indv_idx.append(i)
+
+# read in the file that contains all the haplotype
+all_haps = dict()
+for line in hapfile:
+    line = line[:-1]
+    cols = line.split()
+    snp_id = cols[1]
+    if(snp_id[0:2] != "rs"):
+        continue
+    hap_line = ""
+    for idx in indv_idx:
+        hap_line = hap_line+cols[idx]
+    all_haps[snp_id] = hap_line
+hapfile.close()
+
+print("All " + str(len(all_haps)) + " loaded...")
+
+# iterate through all the map files
+sequencefile = open(sequencefile_nm, "r")
+for mapfile_nm in sequencefile:
+    mapfile_nm = mapfile_nm[:-1]
+    print("Extracting haplotypes for windows in "+mapfile_nm)
+    mapfile_nm = directory+mapfile_nm
+
+    # iterate through one map file
+    of = open(output+mapfile_nm.split("/")[-1]+".haps", "w")
+    of.write(indv_line+"\n")
+    mapfile = open(mapfile_nm, "r")
+    first_line_skipped = False
+    for line in mapfile:
+        if(not first_line_skipped):
+            first_line_skipped = True
+            continue
+        line = line[:-1]
+        cols = line.split()
+        name = cols[0]
+        pos = cols[1]
+        refalt = cols[2]+cols[3]
+        if(name not in all_haps):
+            continue
+        hap_line = all_haps[name]
+        of.write(name+" ")
+        for i in range(0, len(hap_line)):
+            if(hap_line[i] == refalt[0]):
+                of.write("1")
+            else:
+                of.write("2")
+        of.write("\n")
+    mapfile.close()
+    of.close()
