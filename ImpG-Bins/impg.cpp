@@ -165,7 +165,7 @@ double get_var(const vector<string>& haps,
 void get_beta_var(const string& prefix, const vector<string>& haps,
 	const vector<ref_snp>& all_snps, const vector<typed_snp>& typed_snps,
 	const vector<double>& freqs, const vector<char>& impute_flags,
-	double *sigma_t_tmp, double lambda) {
+	double *sigma_t_tmp, double lambda, double maf_th) {
 	
 	string filename;
 	FILE *fout;
@@ -191,7 +191,7 @@ void get_beta_var(const string& prefix, const vector<string>& haps,
 	// filter maf snps
 	for(size_t i = 0; i < num_typed_snps; i++) {
 		double freq = freqs[typed_snps[i].idx];
-		if(freq < 0.01 || freq > 0.99) {
+		if(freq < maf_th || freq > 1-maf_th) {
 			filter_flags[i] = 1;
 		}
 	}
@@ -336,154 +336,13 @@ void get_beta_var(const string& prefix, const vector<string>& haps,
 	free(beta);
 }
 
-// output betas and vars
-void get_beta_var_raw(const string& prefix, const vector<string>& haps,
-	const vector<genotype>& all_snps, const vector<genotype>& typed_snps,
-	const vector<double>& freqs, double *sigma_t_tmp, double lambda) {
-	
-	string filename;
-	FILE *fout;
-	
-	size_t num_typed_snps = typed_snps.size();
-	size_t num_total_snps = all_snps.size();
-	
-	// for filtering
-	vector<char> filter_flags;
-	filter_flags.resize(num_typed_snps, 0);
-	
-	// filter perfectly correlated snps
-	for(size_t i = 0; i < num_typed_snps; i++) {
-		for(size_t j = i+1; j < num_typed_snps; j++) {
-			if(sigma_t_tmp[i*num_typed_snps+j] > 0.99) {
-				filter_flags[j] = 1;
-			}
-		}
-	}
-	
-	// filter maf snps
-	for(size_t i = 0; i < num_typed_snps; i++) {
-		double freq = freqs[typed_snps[i].idx];
-		if(freq < 0.01 || freq > 0.99) {
-			filter_flags[i] = 1;
-		}
-	}
-	
-	// count the number of unfiltered snps
-	size_t num_snps = 0;
-	for(size_t i = 0; i < num_typed_snps; i++) {
-		if(filter_flags[i] != 1) {
-			num_snps++;
-		}
-	}
-	
-	// for debugging
-	if(verbose) {
-		printf("Info: Using %u SNPs for sigma_tt matrix...\n",
-			(unsigned int)num_snps);
-	}
-	
-	size_t sigma_t_size = num_snps*num_snps;
-	double *sigma_t = (double*)safe_calloc(sigma_t_size, sizeof(double));
-	double *sigma_t_inv = (double*)safe_calloc(sigma_t_size, sizeof(double));
-	double *sigma_it = (double*)safe_calloc(num_snps, sizeof(double));
-	double *beta = (double*)safe_calloc(num_snps, sizeof(double));
-
-	// construct sigma for typed snps
-	size_t ii = 0;
-	for(size_t i = 0; i < num_typed_snps; i++) {
-		for(size_t j = 0; j < num_typed_snps; j++) {
-			if(filter_flags[i] != 1 && filter_flags[j] != 1) {
-				sigma_t[ii] = sigma_t_tmp[i*num_typed_snps+j];
-				if(i == j) {
-					sigma_t[ii] += lambda;
-				}
-				ii++;
-			}
-		}
-	}
-
-	// compute the inverse
-	pinv_jacobi(sigma_t_inv, sigma_t, num_snps);
-
-	// print out typed snps used for estimating sigma
-	filename = prefix+".snp";
-	fout = safe_fopen(filename.c_str(),"w");
-	fprintf(fout, "SNP_name SNP_pos\n");
-	for(size_t i = 0; i < num_typed_snps; i++) {
-		if(filter_flags[i] != 1) {
-			fprintf(fout,"%s %lld\n", typed_snps[i].snp_name.c_str(),
-				(long long int)typed_snps[i].snp_pos);
-		}
-	}
-	fclose(fout);
-	
-	// print out beta and variance
-	filename = prefix+".beta";
-	fout = safe_fopen(filename.c_str(),"w");
-	fprintf(fout, "SNP_name SNP_pos ");
-	for(size_t i = 0; i < num_typed_snps; i++) {
-		if(filter_flags[i] != 1) {
-			fprintf(fout,"%s ", typed_snps[i].snp_name.c_str());
-		}
-	}
-	fprintf(fout, "Var\n");
-	
-	for(size_t idx = 0; idx < num_total_snps; idx++) {
-		// get sigma_it
-		ii = 0;
-		double pi = freqs[idx];
-		for(size_t i = 0; i < num_typed_snps; i++) {
-			if(filter_flags[i] != 1) {
-				size_t sidx = typed_snps[i].idx;
-				double pj = freqs[sidx];
-				double r = 0.0;
-				if(pi < 0.01 || pi > 0.99) {
-					// do nothing
-				}
-				else {
-					double pij = get_h_freq(haps, idx, sidx);
-					r = (pij-pi*pj)/sqrt(pi*(1.0-pi)*pj*(1.0-pj));
-				}
-				sigma_it[ii] = r;
-				ii++;
-			}
-		}
-		
-		// print beta
-		fprintf(fout,"%s %lld", all_snps[idx].snp_name.c_str(),
-			all_snps[idx].snp_pos);
-		for(size_t i = 0; i < num_snps; i++) {
-			beta[i] = 0.0;
-			for(size_t j = 0; j < num_snps; j++) {
-				beta[i] += sigma_it[j]*sigma_t_inv[num_snps*j+i];
-			}
-			fprintf(fout," %.8f",beta[i]);
-		}
-		
-		// print variance
-		double var = 0.0;
-		for(size_t i = 0; i < num_snps; i++) {
-			for(size_t j = 0; j < num_snps; j++) {
-				var += beta[i]*beta[j]*sigma_t[num_snps*j+i];
-			}
-		}
-		fprintf(fout," %.8f\n", var);
-	}
-	fclose(fout);
-	
-	free(sigma_t);
-	free(sigma_t_inv);
-	free(sigma_it);
-	free(beta);
-}
-
 // get the command line input for gen_beta program
 int get_gen_beta_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
 		char **IN_ALL_SNP_FILE, char **IN_TYPED_SNP_FILE,
-		char **OUT_FILE_PREFIX) {
+		char **OUT_FILE_PREFIX, char **MAF_TH) {
 	int nflags = 0;
 	char opt;
-	while((opt = getopt(argc,argv,"h:m:t:p:")) != -1) {
+	while((opt = getopt(argc,argv,"h:m:t:p:f:")) != -1) {
 		switch(opt) {
 			case 'h': // haplotype file
 				*IN_HAP_FILE = (char *) strdup(optarg);
@@ -501,6 +360,10 @@ int get_gen_beta_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
 				*OUT_FILE_PREFIX = (char *) strdup(optarg);
 				nflags++;
 				break;
+            case 'f': // MAF threshold
+                *MAF_TH = (char*) strdup(optarg);
+                nflags++;
+                break;
 		}
 	}
 	if(!(*IN_HAP_FILE) || !(*IN_ALL_SNP_FILE) || !(*IN_TYPED_SNP_FILE) ||
@@ -510,6 +373,7 @@ int get_gen_beta_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
 		fprintf(stderr, "\t-m (required) specify SNP mapping file\n");
 		fprintf(stderr, "\t-t (required) specify typed SNP file\n");
 		fprintf(stderr, "\t-p (required) specify output file prefix\n");
+        fprintf(stderr, "\t-f (optional) specify minimum MAF (0.01 by default)\n");
 		exit(1);
 	}
 	
@@ -557,10 +421,10 @@ int get_imp_cmd_line(int argc, char **argv, char **PREFIX,
 // get the command line input for gen_beta with ld program
 int get_gen_beta_ld_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
 		char **IN_ALL_SNP_FILE, char **IN_TYPED_SNP_FILE, char **IN_LD_FILE,
-		char **OUT_FILE_PREFIX) {
+		char **OUT_FILE_PREFIX, char **MAF_TH) {
 	int nflags = 0;
 	char opt;
-	while((opt = getopt(argc,argv,"h:m:t:p:l:")) != -1) {
+	while((opt = getopt(argc,argv,"h:m:t:p:l:f:")) != -1) {
 		switch(opt) {
 			case 'h': // haplotype file
 				*IN_HAP_FILE = (char *) strdup(optarg);
@@ -582,6 +446,11 @@ int get_gen_beta_ld_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
 				*OUT_FILE_PREFIX = (char *) strdup(optarg);
 				nflags++;
 				break;
+            case 'f': // MAF threshold
+                *MAF_TH = (char*) strdup(optarg);
+                nflags++;
+                break;
+
 		}
 	}
 	if(!(*IN_HAP_FILE) || !(*IN_ALL_SNP_FILE) || !(*IN_TYPED_SNP_FILE) ||
@@ -592,7 +461,8 @@ int get_gen_beta_ld_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
 		fprintf(stderr, "\t-t (required) specify typed SNP file\n");
 		fprintf(stderr, "\t-l (required) specify LD statistics file\n");
 		fprintf(stderr, "\t-p (required) specify output file prefix -p\n");
-		exit(1);
+		fprintf(stderr, "\t-f (optional) specify minimum MAF (0.01 by default)\n");
+        exit(1);
 	}
 	
 	return nflags;

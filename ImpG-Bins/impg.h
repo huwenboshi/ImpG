@@ -33,7 +33,7 @@ double get_var(const vector<string>& haps,
 // get the command line input for gen_beta program
 int get_gen_beta_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
 		char **IN_ALL_SNP_FILE, char **IN_TYPED_SNP_FILE,
-		char **OUT_FILE_PREFIX);
+		char **OUT_FILE_PREFIX, char **MAF_TH);
 		
 // get command line input for impute z-scores
 int get_imp_cmd_line(int argc, char **argv, char **PREFIX,
@@ -42,15 +42,10 @@ int get_imp_cmd_line(int argc, char **argv, char **PREFIX,
 // get the command line input for gen_beta with ld
 int get_gen_beta_ld_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
 		char **IN_ALL_SNP_FILE, char **IN_TYPED_SNP_FILE, char **IN_LD_FILE,
-		char **OUT_FILE_PREFIX);
+		char **OUT_FILE_PREFIX, char **MAF_TH);
 
 // compute beta and var
 void get_beta_var(const string& prefix, const vector<string>& haps,
 	const vector<ref_snp>& all_snps, const vector<typed_snp>& typed_snps,
 	const vector<double>& freqs, const vector<char>& impute_flags,
-	double *sigma_t_tmp, double lambda);
-	
-// compute beta and var
-void get_beta_var_raw(const string& prefix, const vector<string>& haps,
-	const vector<genotype>& all_snps, const vector<genotype>& typed_snps,
-	const vector<double>& freqs, double *sigma_t_tmp, double lambda);
+	double *sigma_t_tmp, double lambda, double maf_th);

@@ -1,18 +1,11 @@
 CC = g++
-COPTS = -O3 -lm -Wall
+COPTS = -O3 -Wall
 
 BINS = ImpG-Summary-GenBeta ImpG-Summary \
 	GenLD ImpG-SummaryLD-GenBeta ImpG-SummaryLD #\
 #	ImpG-Raw-GenBeta
 
 all: $(BINS)
-
-# ImpG-Raw-GenBeta
-#ImpG-Raw-GenBeta: impg.o impg_raw_gen_beta_main.o util.o linsubs.o
-#	$(CC) impg.o impg_raw_gen_beta_main.o util.o linsubs.o \
-#		-o ImpG-Raw-GenBeta $(COPTS)
-#impg_raw_gen_beta_main.o: impg_raw_gen_beta_main.cpp
-#	$(CC) -c impg_raw_gen_beta_main.cpp $(COPTS)
 
 #GenLD
 GenLD: genld_main.o genld.o util.o

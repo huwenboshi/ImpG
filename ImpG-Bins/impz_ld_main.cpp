@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
 	skip_first_line(fin);
 	
 	fout = safe_fopen(OUT_FILE, "w");
-	fprintf(fout, "SNP_name SNP_pos Ref_Allele Alt_Allele Z-Score Var\n");
+	fprintf(fout, "SNP_name SNP_pos Ref_Allele Alt_Allele Z-Score r2pred\n");
 	
 	size_t typed_snp_idx = 0;
 	

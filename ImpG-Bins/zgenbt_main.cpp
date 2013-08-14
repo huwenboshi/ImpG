@@ -1,6 +1,8 @@
 #include <iostream>
 #include <cmath>
 #include <stdio.h>
+#include <stdlib.h>
+
 
 #include "impg.h"
 #include "linsubs.h"
@@ -8,14 +10,25 @@
 using namespace std;
 
 int main(int argc, char **argv) {
-	string filename, prefix;
+	double maf_th = 0.01;
+    
+    string filename, prefix;
 
 	// get command line input
 	char *IN_HAP_FILE = NULL, *IN_ALL_SNP_FILE = NULL;
 	char *IN_TYPED_SNP_FILE = NULL, *OUT_FILE_PREFIX = NULL;
+    char *MAF_TH = NULL;
 	get_gen_beta_cmd_line(argc, argv, &IN_HAP_FILE, &IN_ALL_SNP_FILE,
-		&IN_TYPED_SNP_FILE, &OUT_FILE_PREFIX);
-	prefix = string(OUT_FILE_PREFIX);
+		&IN_TYPED_SNP_FILE, &OUT_FILE_PREFIX, &MAF_TH);
+	if(MAF_TH != NULL) {
+        maf_th = atof(MAF_TH);
+    }
+    if(verbose) {
+        printf("Info: Using SNPs with MAF >= %.8lf for constructing sigma matrix...\n", maf_th);
+    }
+
+    prefix = string(OUT_FILE_PREFIX);
+
 
 	// load typed snps
 	vector<typed_snp> typed_snps;
@@ -62,7 +75,7 @@ int main(int argc, char **argv) {
 	
 	// output the betas and vars
 	get_beta_var(prefix, haps, all_snps, typed_snps,
-		freqs, impute_flags, sigma_t_tmp, LAMBDA);
+		freqs, impute_flags, sigma_t_tmp, LAMBDA, maf_th);
 
 	// clean up
 	free(sigma_t_tmp);	
@@ -70,4 +83,7 @@ int main(int argc, char **argv) {
 	free(IN_ALL_SNP_FILE);
 	free(IN_TYPED_SNP_FILE);
 	free(OUT_FILE_PREFIX);
+    if(MAF_TH != NULL) {
+        free(MAF_TH);
+    }
 }
