@@ -267,7 +267,7 @@ void get_beta_var(const string& prefix, const vector<string>& haps,
 					size_t sidx = typed_snps[i].idx;
 					double pj = freqs[sidx];
 					double r = 0.0;
-					if(pi < 0.01 || pi > 0.99) {
+					if(pi < maf_th || pi > 1-maf_th) {
 						// do nothing
 					}
 					else {
@@ -339,10 +339,10 @@ void get_beta_var(const string& prefix, const vector<string>& haps,
 // get the command line input for gen_beta program
 int get_gen_beta_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
 		char **IN_ALL_SNP_FILE, char **IN_TYPED_SNP_FILE,
-		char **OUT_FILE_PREFIX, char **MAF_TH) {
+		char **OUT_FILE_PREFIX, char **MAF_TH, char **LAMBDA) {
 	int nflags = 0;
 	char opt;
-	while((opt = getopt(argc,argv,"h:m:t:p:f:")) != -1) {
+	while((opt = getopt(argc,argv,"h:m:t:p:f:l:")) != -1) {
 		switch(opt) {
 			case 'h': // haplotype file
 				*IN_HAP_FILE = (char *) strdup(optarg);
@@ -364,6 +364,10 @@ int get_gen_beta_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
                 *MAF_TH = (char*) strdup(optarg);
                 nflags++;
                 break;
+            case 'l': // LAMBDA
+                *LAMBDA = (char*) strdup(optarg);
+                nflags++;
+                break;
 		}
 	}
 	if(!(*IN_HAP_FILE) || !(*IN_ALL_SNP_FILE) || !(*IN_TYPED_SNP_FILE) ||
@@ -374,7 +378,8 @@ int get_gen_beta_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
 		fprintf(stderr, "\t-t (required) specify typed SNP file\n");
 		fprintf(stderr, "\t-p (required) specify output file prefix\n");
         fprintf(stderr, "\t-f (optional) specify minimum MAF (0.01 by default)\n");
-		exit(1);
+		fprintf(stderr, "\t-l (optional) specify lambda (0.1 by default)\n");
+        exit(1);
 	}
 	
 	return nflags;

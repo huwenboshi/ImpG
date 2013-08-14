@@ -4,8 +4,6 @@
 #include "util.h"
 #include "linsubs.h"
 
-const double LAMBDA = 0.1;
-
 // load z-score typed snps file
 size_t load_zscore_typed_snps(const char *filename,
 	const vector<typed_snp>& typed_snps, vector<zscore_typed_snp> &ztyped_snps);
@@ -33,7 +31,7 @@ double get_var(const vector<string>& haps,
 // get the command line input for gen_beta program
 int get_gen_beta_cmd_line(int argc, char **argv, char **IN_HAP_FILE,
 		char **IN_ALL_SNP_FILE, char **IN_TYPED_SNP_FILE,
-		char **OUT_FILE_PREFIX, char **MAF_TH);
+		char **OUT_FILE_PREFIX, char **MAF_TH, char **LAMBDA);
 		
 // get command line input for impute z-scores
 int get_imp_cmd_line(int argc, char **argv, char **PREFIX,
