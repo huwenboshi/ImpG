@@ -27,5 +27,4 @@ for line in f:
     indv = cols[0]
     pop = cols[2]
     if(code == pop):
-        if(indv not in added):
-            print(indv)
+        print(indv)
